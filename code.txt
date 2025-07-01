@@ -1,0 +1,313 @@
+
+employee_login.php
+<?php
+session_start();
+include("coon.php");
+
+if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    $emp_code = $_POST['emp_code'];
+    $password = $_POST['password'];
+
+    $stmt = mysqli_prepare($con, "SELECT * FROM employees WHERE emp_code = ?");
+    mysqli_stmt_bind_param($stmt, "s", $emp_code);
+    mysqli_stmt_execute($stmt);
+    $res = mysqli_stmt_get_result($stmt);
+
+    if ($row = mysqli_fetch_assoc($res)) {
+        // مقارنة كلمة السر نصياً حسب طلبك (غير مشفرة)
+        if ($password === $row['password']) {
+            $_SESSION['emp_id'] = $row['id'];  // توحيد اسم الجلسة
+            header("Location: insert.php");
+            exit;
+        } else {
+            $error = "❌ كلمة المرور غير صحيحة";
+        }
+    } else {
+        $error = "❌ معرّف الموظف غير موجود";
+    }
+}
+?>
+
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <title>تسجيل دخول الموظف</title>
+        
+</head>
+<body>
+    <div class="main">
+        <h2>تسجيل دخول الموظف</h2>
+        <?php if (isset($error)): ?>
+            <p class="error"><?= htmlspecialchars($error) ?></p>
+        <?php endif; ?>
+        <form method="POST">
+            <input type="text" name="emp_code" placeholder="معرّف الموظف" required>
+            <input type="password" name="password" placeholder="كلمة السر" required>
+            <button type="submit">تسجيل الدخول</button>
+        </form>
+        <a href="index.php">العودة للرئيسية</a>
+    </div>
+</body>
+</html>
+
+login_user.php
+<?php
+// login.php
+session_start();
+include('coon.php');
+
+if(isset($_POST['login'])) {
+    $username = mysqli_real_escape_string($con, $_POST['username']);
+    $res = mysqli_query($con, "SELECT * FROM users WHERE username='$username'");
+    if($row = mysqli_fetch_assoc($res)) {
+        if(password_verify($_POST['password'], $row['password_hash'])) {
+            $_SESSION['user_id'] = $row['id'];
+            header('Location: shop.php'); exit;
+        } else {
+            $error = 'كلمة المرور خاطئة';
+        }
+    } else {
+        $error = 'اسم المستخدم غير موجود';
+    }
+}
+?>
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+  <meta charset="UTF-8">
+      
+  <title>تسجيل دخول عميل</title>
+</head>
+<body>
+  <div class="main">
+    <h2>تسجيل دخول</h2>
+    <?php if(isset($error)) echo "<p>$error</p>"; ?>
+    <form method="post">
+      <input type="text" name="username" placeholder="اسم المستخدم" required>
+      <input type="password" name="password" placeholder="كلمة المرور" required>
+      <button name="login">دخول</button>
+    </form>
+    <p>ليس لديك حساب؟ <a href="register.php">إنشاء حساب</a></p>
+    <a href="index.php">الرجوع للرئيسية</a>
+
+  </div>
+</body>
+</html>
+
+logout.php
+<?php
+session_start();
+session_destroy();
+header("location: login_user.php");
+?>
+prod.php
+<?php
+session_start();
+if(!isset($_SESSION['emp_id'])) {
+    header('Location: employee_login.php');
+    exit;
+}
+include('coon.php');
+?>
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+<meta charset="UTF-8">
+<title>صفحة المنتجات</title>
+
+</head>
+<body>
+<nav class="navbar">
+    <a href="add_product.php">إضافة منتج</a>
+    <a href="logout.php">خروج</a>
+</nav>
+
+<div class="main">
+<?php
+$res = mysqli_query($con, "SELECT * FROM pro");
+while($row = mysqli_fetch_assoc($res)) {
+    echo "<div class='product-card'>";
+    echo "<img src='images/".htmlspecialchars($row['image'])."' alt='".htmlspecialchars($row['name'])."'>";
+    echo "<h4>".htmlspecialchars($row['name'])."</h4>";
+    echo "<p>السعر: ".htmlspecialchars($row['price'])." ر.س</p>";
+    echo "<a href='update.php?id=".$row['id']."' class='add'>تعديل</a> ";
+    echo "<a href='delete.php?id=".$row['id']."' class='remove' onclick='return confirm(\"هل أنت متأكد من الحذف؟\")'>حذف</a>";
+    echo "</div>";
+}
+?>
+</div>
+</body>
+</html>
+
+register.php
+<?php
+// register.php
+session_start();
+include('coon.php');
+
+if(isset($_POST['register'])) {
+    $username = mysqli_real_escape_string($con, $_POST['username']);
+    // إذا المستخدم موجود مسبقًا
+    $exists = mysqli_query($con, "SELECT id FROM users WHERE username='$username'");
+    if(mysqli_num_rows($exists)) {
+        $error = 'اسم المستخدم مستخدم بالفعل';
+    } else {
+        $password = password_hash($_POST['password'], PASSWORD_DEFAULT);
+        mysqli_query($con, "INSERT INTO users (username,password_hash) VALUES ('$username','$password')");
+        header('Location: login_user.php'); exit;
+    }
+}
+?>
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+  <meta charset="UTF-8">
+  
+  <title>إنشاء حساب عميل</title>
+</head>
+<body>
+  <div class="main">
+    <h2>إنشاء حساب</h2>
+    <?php if(isset($error)) echo "<p>$error</p>"; ?>
+    <form method="post">
+      <input type="text" name="username" placeholder="اسم المستخدم" required>
+      <input type="password" name="password" placeholder="كلمة المرور" required>
+      <button name="register">سجِّل</button>
+    </form>
+    <p>لديك حساب؟ <a href="login.php">تسجيل دخول</a></p>
+  </div>
+</body>
+</html>
+
+remove_from_cart.php
+<?php
+session_start();
+include('coon.php');
+
+if(!isset($_SESSION['user_id'])) {
+    header('Location: login.php');
+    exit;
+}
+
+if(isset($_GET['id'])) {
+    $cart_id = intval($_GET['id']);
+    mysqli_query($con, "DELETE FROM cart WHERE id = $cart_id");
+}
+
+header('Location: cart.php');
+exit;
+?>
+shop.php
+<?php
+session_start();
+if (!isset($_SESSION['user_id'])) {
+    header('Location: login.php');
+    exit;
+}
+include('coon.php');
+
+// جلب جميع المنتجات
+$result = mysqli_query($con, "SELECT * FROM pro");
+$products = [];
+
+while ($row = mysqli_fetch_assoc($result)) {
+    $cat = $row['category'];
+    $products[$cat][] = $row;
+}
+?>
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+  <meta charset="UTF-8">
+  <title>المتجر الإلكتروني</title>
+
+</head>
+<body>
+  <header class="navbar">
+    <div class="logo"><span>متجري</span></div>
+    <div class="navigation">
+      <a href="cart.php">عربتي</a>
+      <a href="logout.php">خروج</a>
+    </div>
+  </header>
+
+  <div class="container">
+    <div class="sub-header">
+      <div class="title">كل المنتجات <span>الاقسام المتاحة</span></div>
+    </div>
+
+    <?php if (empty($products)): ?>
+      <p class="message">لا توجد منتجات حالياً.</p>
+    <?php else: ?>
+      <?php foreach ($products as $category => $items): ?>
+        <h3 style="margin: 20px 0; color:#c8ad78"><?= htmlspecialchars($category) ?></h3>
+        <div class="thumb-wrapper">
+          <?php foreach ($items as $row): ?>
+            <div class="thumb-unit">
+              <div class="heading">
+                <span><?= htmlspecialchars($row['name']) ?></span>
+                <span><?= htmlspecialchars($row['price']) ?> ر.س</span>
+              </div>
+              <div class="box" style="background-image: url('images/<?= htmlspecialchars($row['image']) ?>');"></div>
+              <div class="info">
+                <a class="add" href="add_to_cart.php?id=<?= $row['id'] ?>">إضافة للعربة</a>
+                <a class="remove" href="details.php?id=<?= $row['id'] ?>">تفاصيل</a>
+              </div>
+            </div>
+          <?php endforeach; ?>
+        </div>
+      <?php endforeach; ?>
+    <?php endif; ?>
+  </div>
+</body>
+</html>
+
+update.php
+<?php
+session_start();
+if (!isset($_SESSION['employee_id'])) {
+    header("Location: employee_login.php");
+    exit;
+}
+
+include("coon.php");
+
+if (!isset($_GET['id'])) {
+    header("Location: prod.php");
+    exit;
+}
+
+$id = intval($_GET['id']);
+
+$res = mysqli_query($con, "SELECT * FROM pro WHERE id=$id");
+if (mysqli_num_rows($res) == 0) {
+    echo "المنتج غير موجود.";
+    exit;
+}
+
+$row = mysqli_fetch_assoc($res);
+
+if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    $name = mysqli_real_escape_string($con, $_POST['name']);
+    $price = mysqli_real_escape_string($con, $_POST['price']);
+    $image = mysqli_real_escape_string($con, $_POST['image']);
+    $desc = mysqli_real_escape_string($con, $_POST['description']);
+
+    $update = "UPDATE pro SET name='$name', price='$price', image='$image', description='$desc' WHERE id=$id";
+    mysqli_query($con, $update);
+
+    header("Location: prod.php");
+    exit;
+}
+?>
+<form method="post">
+    <input type="text" name="name" value="<?= htmlspecialchars($row['name']) ?>" required>
+    <input type="text" name="price" value="<?= htmlspecialchars($row['price']) ?>" required>
+    <input type="text" name="image" value="<?= htmlspecialchars($row['image']) ?>" required>
+    <textarea name="description" rows="4" required><?= htmlspecialchars($row['description']) ?></textarea>
+    <button type="submit">تحديث</button>
+</form>
+
+
+
